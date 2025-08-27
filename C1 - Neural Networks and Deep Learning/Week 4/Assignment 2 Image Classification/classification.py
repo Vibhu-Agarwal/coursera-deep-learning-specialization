@@ -342,7 +342,6 @@ print(f"test accuracy: {test_accuracy}")
 # Model.confustion_matrix(predictions_train, train_y)
 Model.confustion_matrix(predictions_test, test_y)
 
-import torch
 import matplotlib.pyplot as plt
 
 def print_mislabeled_images(classes, X, y, p):
@@ -390,3 +389,42 @@ def print_mislabeled_images(classes, X, y, p):
     plt.show()
 
 print_mislabeled_images(classes, test_x_orig, test_y, predictions_test)
+
+from PIL import Image
+import matplotlib.pyplot as plt
+
+def predict_single_image(image_path, classes, predict_fn, num_px=64):
+    """
+    Loads, preprocesses, and predicts the class of a single image using a PyTorch model.
+    """
+    try:
+        fileImage = Image.open(image_path).convert("RGB").resize((num_px, num_px), Image.LANCZOS)
+
+        image_tensor = torch.tensor(list(fileImage.getdata()), dtype=torch.float32).reshape(1, num_px, num_px, 3)
+
+    except FileNotFoundError:
+        print(f"Error: The image file '{image_path}' was not found.")
+        return
+    except Exception as e:
+        print(f"An error occurred during image processing: {e}")
+        return
+
+    my_label_y = torch.tensor([1], dtype=torch.float)
+
+    my_predicted_image = predict_fn(image_tensor)
+
+    image_to_plot = fileImage.resize((num_px, num_px), Image.LANCZOS)
+
+    # Plot the image and print the prediction
+    plt.imshow(image_to_plot)
+    plt.axis('off')
+
+    # Squeeze the tensor to get the scalar prediction value
+    predicted_value = my_predicted_image.squeeze().item()
+
+    predicted_class_name = classes[int(predicted_value)]
+
+    print(f"y = {predicted_value}, your model predicts a \"{predicted_class_name}\" picture.")
+
+tst_img = f"{DATA_DIR}/tst_img1.jpg"
+predict_single_image(tst_img, classes, prediction_model.predict)
