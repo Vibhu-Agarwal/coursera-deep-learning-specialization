@@ -58,7 +58,7 @@ class Model:
 
         with torch.no_grad():
             y_pred = self(x)
-            y_pred = (y_pred > 0.4).float()
+            y_pred = (y_pred > 0.5).float()
         return y_pred
 
     @staticmethod
@@ -271,7 +271,7 @@ def wave_model(n_hidden=10):
 
     return model, sum(p.nelement() for p in parameters)
 
-model, nparameters = wave_model(n_hidden=7)
+model, nparameters = wave_model(n_hidden=5)
 print(f"{nparameters=}")
 model.layers
 
@@ -282,15 +282,15 @@ def prepare_batch(X, Y, batch_size):
     idx = torch.randperm(X.shape[0])[:batch_size]
     return X[idx], Y[idx]
 
-def train(model, X, Y, lr = 0.01, batch_size=24, num_iterations=4500):
+def train(model, X, Y, lr = 0.02, batch_size=16, num_iterations=3000, weight_decay=0.0):
 
     for layer in model.layers:
         layer.training = True
 
     losses = []
-    loss = torch.nn.BCELoss()
+    loss_fn = torch.nn.BCELoss()
 
-    decay_after = 0.6 # decay after decay_after% iterations are done
+    decay_after = 0.7 # decay after decay_after% iterations are done
 
     for i in range(0, num_iterations):
 
@@ -299,27 +299,33 @@ def train(model, X, Y, lr = 0.01, batch_size=24, num_iterations=4500):
 
         # Forward propagation:
         batch_y_pred = model(batch_x)
-        lossi = loss(batch_y_pred, batch_y)
+        loss = loss_fn(batch_y_pred, batch_y)
+
+        # L2 Regularization
+        if weight_decay > 0:
+            # Only regularize weights (tensors with 2+ dimensions), not biases or batchnorm params.
+            l2_norm = sum(p.pow(2.0).sum() for p in model.parameters() if p.dim() > 1)
+            loss = loss + weight_decay * l2_norm
 
         # backward pass
         for p in model.parameters():
             p.grad = None
-        lossi.backward()
+        loss.backward()
 
         # update: simple SGD
         for p in model.parameters():
             p.data += -learning_rate(i, num_iterations, lr, decay_after) * p.grad
 
         if (i % 100 == 0) or (i == num_iterations - 1):
-            print(f"Iteration {i+1} | Loss: {lossi.item()}")
+            print(f"Iteration {i+1} | Loss: {loss.item()}")
 
-        losses.append(lossi.item())
+        losses.append(loss.item())
 
         # break
 
     return losses
 
-losses = train(model, train_x_orig, train_y)
+losses = train(model, train_x_orig, train_y, weight_decay=0.001)
 plt.plot(torch.tensor(losses))
 
 prediction_model = model
