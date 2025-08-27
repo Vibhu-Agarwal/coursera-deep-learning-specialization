@@ -20,7 +20,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 DATA_DIR = '/content/gdrive/My Drive/Colab Notebooks/dl-sp-c1w4/datasets'
 
 def reshape_input(x):
-    return x.view(x.shape[0], x.shape[1], -1)
+    return x
 
 def load_data():
     import h5py
@@ -32,7 +32,6 @@ def load_data():
 
     train_dataset = h5py.File(train_path, "r")
     train_set_x_orig = torch.from_numpy(np.array(train_dataset["train_set_x"][:])).float()
-    print(f"{train_set_x_orig.shape=}")
     train_set_x = reshape_input(train_set_x_orig)
     train_set_y = torch.from_numpy(np.array(train_dataset["train_set_y"][:])).float()
 
@@ -47,23 +46,10 @@ def load_data():
     return train_set_x, train_set_y, test_set_x, test_set_y, classes
 
 train_x_orig, train_y, test_x_orig, test_y, classes = load_data()
-train_x_orig.shape, train_y.shape, test_x_orig.shape, test_y.shape
-
-# vocab_size = num_embeddings = 17
-# embedding_dim = 10
-# emb = torch.randn((num_embeddings, embedding_dim))
-
-# examples = 50
-# features = 64
-# inp = torch.randint(0, vocab_size, (examples, features))
-# x = emb[inp]
-# print(f"{inp.shape=} {emb.shape=} {x.shape=}")
-
-
-# flatten_n = 2
-# B, T, C = x.shape
-# x = x.view(B, T//flatten_n, C*flatten_n)
-# print(f"{x.shape=}")
+print(f"{train_x_orig.shape=}")
+print(f"{train_y.shape=}")
+print(f"{test_x_orig.shape=}")
+print(f"{test_y.shape=}")
 
 class Model:
     def predict(self, x):
@@ -72,7 +58,7 @@ class Model:
 
         with torch.no_grad():
             y_pred = self(x)
-            y_pred = (y_pred > 0.7).float()
+            y_pred = (y_pred > 0.4).float()
         return y_pred
 
     @staticmethod
@@ -118,11 +104,12 @@ class Linear:
     return f"[{self.id}]{self.__class__.__name__} [{self.f_in}->{self.f_out}]"
 
   def __call__(self, x):
-    # print(str(self), x.shape)
+    # print(str(self), f"{x.shape=}")
     self.out = x @ self.weight
     if self.bias is not None:
       self.out += self.bias
     self.out = self.out.squeeze()
+    # print(str(self), f"{self.out.shape=}")
     return self.out
 
   def parameters(self):
@@ -268,6 +255,7 @@ class Sequential(Model):
 
 def wave_model(n_hidden=10):
     model = Sequential([
+                Linear(3, 1, bias=False), BatchNorm1d(1), LeakyRelu(),
                 WaveStack(train_x_orig.shape[2], train_x_orig.shape[1], neurons=n_hidden, activationLayer=LeakyRelu),
                 Linear(n_hidden, 1), Sigmoid(),
             ])
@@ -283,9 +271,8 @@ def wave_model(n_hidden=10):
 
     return model, sum(p.nelement() for p in parameters)
 
-model, nparameters = wave_model(n_hidden=15)
+model, nparameters = wave_model(n_hidden=7)
 print(f"{nparameters=}")
-
 model.layers
 
 def learning_rate(iteration:int, total_iterations:int, lr=0.01, decay_after=0.8, decay_amount=0.1):
@@ -295,7 +282,7 @@ def prepare_batch(X, Y, batch_size):
     idx = torch.randperm(X.shape[0])[:batch_size]
     return X[idx], Y[idx]
 
-def train(model, X, Y, lr = 0.01, batch_size=24, num_iterations=2500):
+def train(model, X, Y, lr = 0.01, batch_size=24, num_iterations=4500):
 
     for layer in model.layers:
         layer.training = True
@@ -303,7 +290,7 @@ def train(model, X, Y, lr = 0.01, batch_size=24, num_iterations=2500):
     losses = []
     loss = torch.nn.BCELoss()
 
-    decay_after = 0.8 # decay after decay_after% iterations are done
+    decay_after = 0.6 # decay after decay_after% iterations are done
 
     for i in range(0, num_iterations):
 
@@ -328,6 +315,8 @@ def train(model, X, Y, lr = 0.01, batch_size=24, num_iterations=2500):
 
         losses.append(lossi.item())
 
+        # break
+
     return losses
 
 losses = train(model, train_x_orig, train_y)
@@ -344,4 +333,5 @@ test_accuracy = Model.accuracy(predictions_test, test_y)
 print(f"train accuracy: {train_accuracy}")
 print(f"test accuracy: {test_accuracy}")
 
+# Model.confustion_matrix(predictions_train, train_y)
 Model.confustion_matrix(predictions_test, test_y)
