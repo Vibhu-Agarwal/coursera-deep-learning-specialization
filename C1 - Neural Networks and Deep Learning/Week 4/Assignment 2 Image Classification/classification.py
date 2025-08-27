@@ -283,7 +283,7 @@ def wave_model(n_hidden=10):
 
     return model, sum(p.nelement() for p in parameters)
 
-model, nparameters = wave_model(n_hidden=20)
+model, nparameters = wave_model(n_hidden=15)
 print(f"{nparameters=}")
 
 model.layers
