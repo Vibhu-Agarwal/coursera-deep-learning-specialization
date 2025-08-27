@@ -341,3 +341,52 @@ print(f"test accuracy: {test_accuracy}")
 
 # Model.confustion_matrix(predictions_train, train_y)
 Model.confustion_matrix(predictions_test, test_y)
+
+import torch
+import matplotlib.pyplot as plt
+
+def print_mislabeled_images(classes, X, y, p):
+    """
+    Plots images where predictions and truth were different.
+
+    Args:
+        classes (list): A list of class names.
+        X (torch.Tensor): The dataset with shape (num_examples, height, width, channels).
+        y (torch.Tensor): True labels with shape (num_examples,).
+        p (torch.Tensor): Predictions with shape (num_examples,).
+    """
+    # Find indices where predictions and true labels don't match
+    mislabeled_indices = torch.where(p != y)[0]
+
+    num_images = len(mislabeled_indices)
+    if num_images == 0:
+        print("No mislabeled images to display. The model is perfect on this batch! 🎉")
+        return
+
+    # Set up the plot for displaying images
+    plt.rcParams['figure.figsize'] = (10, 10 * (num_images / 5 + 1))  # Adjust figure size dynamically
+
+    # Use subplots to create a grid of images
+    fig, axes = plt.subplots(num_images, 1, figsize=(8, 8 * num_images))
+    if num_images == 1:
+        axes = [axes] # Ensure axes is an iterable even for a single image
+
+    for i, index in enumerate(mislabeled_indices):
+        # Extract the image from the tensor and convert to a NumPy array for plotting
+        image = X[index].cpu().numpy().astype(int)
+
+        # Plot the image on the corresponding subplot axis
+        axes[i].imshow(image)
+        axes[i].axis('off')
+
+        # Get the predicted and true class names
+        predicted_class = classes[int(p[index])]
+        true_class = classes[int(y[index])]
+
+        # Set the title with prediction and true label
+        axes[i].set_title(f"Prediction: {predicted_class}\nTrue Class: {true_class}", color='red')
+
+    plt.tight_layout()
+    plt.show()
+
+print_mislabeled_images(classes, test_x_orig, test_y, predictions_test)
